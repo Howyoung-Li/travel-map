@@ -2,8 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import * as echarts from "echarts";
 import travels from "./data/travels.json";
 
-const CHINA_GEOJSON_URL =
-  "https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json";
+const CHINA_GEOJSON_URL = `${import.meta.env.BASE_URL}china.geojson`;
 
 const sortedTravels = [...travels].sort((left, right) =>
   `${right.startDate || ""}${right.endDate || ""}`.localeCompare(
@@ -27,6 +26,12 @@ function formatDisplayDate(dateText) {
     month: "long",
     day: "numeric",
   }).format(date);
+}
+
+function resolveAssetPath(assetPath) {
+  if (!assetPath) return assetPath;
+  if (/^https?:\/\//.test(assetPath)) return assetPath;
+  return `${import.meta.env.BASE_URL}${assetPath.replace(/^\/+/, "")}`;
 }
 
 function collectStats(items) {
@@ -301,7 +306,7 @@ function App() {
               <div className="photo-grid">
                 {selectedTrip.photos.map((photo) => (
                   <figure key={photo.src} className="photo-card">
-                    <img src={photo.src} alt={photo.caption} />
+                    <img src={resolveAssetPath(photo.src)} alt={photo.caption} />
                     <figcaption>
                       <strong>{photo.caption}</strong>
                       <span>{photo.takenAt || "待补充"}</span>

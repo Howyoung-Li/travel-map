@@ -161,7 +161,7 @@ async function copyPhoto(sourcePath, cityName, timestamp) {
   const targetPath = path.join(targetFolder, fileName);
   await fs.copyFile(sourcePath, targetPath);
 
-  return `/photos/imported/${folderName}/${fileName}`;
+  return `photos/imported/${folderName}/${fileName}`;
 }
 
 async function main() {
@@ -219,4 +219,3 @@ main().catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });
-
