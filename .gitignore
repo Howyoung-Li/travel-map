@@ -1,0 +1,12 @@
+.DS_Store
+dist/
+node_modules/
+.env
+.env.local
+.env.*.local
+imports/*
+!imports/.gitkeep
+imports/review.json
+public/photos/imported/
+!public/photos/imported/
+!public/photos/imported/**
