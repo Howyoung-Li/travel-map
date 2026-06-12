@@ -181,12 +181,29 @@ img {
 }
 
 .hero-map {
+  position: relative;
   border-radius: 28px;
   padding: 24px;
   background:
     radial-gradient(circle at 12% 18%, rgba(255, 210, 198, 0.34), transparent 24%),
     radial-gradient(circle at 84% 24%, rgba(182, 226, 236, 0.42), transparent 28%),
     linear-gradient(180deg, rgba(255, 250, 243, 0.98) 0%, rgba(239, 248, 244, 0.94) 100%);
+  overflow: hidden;
+}
+
+.hero-map > * {
+  position: relative;
+  z-index: 1;
+}
+
+.hero-map-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(circle at 20% 15%, rgba(255, 249, 242, 0.32), transparent 24%),
+    linear-gradient(180deg, rgba(255, 252, 246, 0.34) 0%, rgba(248, 251, 249, 0.22) 100%);
+  pointer-events: none;
 }
 
 .legend {
@@ -236,7 +253,8 @@ img {
   border-radius: 22px;
   background:
     radial-gradient(circle at 25% 18%, rgba(255, 235, 185, 0.28), transparent 24%),
-    linear-gradient(180deg, rgba(176, 220, 235, 0.22) 0%, rgba(214, 237, 225, 0.22) 100%);
+    linear-gradient(180deg, rgba(176, 220, 235, 0.28) 0%, rgba(214, 237, 225, 0.28) 100%);
+  backdrop-filter: blur(1px);
 }
 
 .map-hint {

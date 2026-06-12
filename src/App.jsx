@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as echarts from "echarts";
+import GrainientBackground from "./components/GrainientBackground";
 import travels from "./data/travels.json";
 
 const CHINA_GEOJSON_URL = `${import.meta.env.BASE_URL}china.geojson`;
@@ -242,6 +243,8 @@ function App() {
 
       <main className="main-panel">
         <section className="hero-map">
+          <GrainientBackground />
+          <div className="hero-map-overlay" />
           <div className="section-head">
             <div>
               <p className="eyebrow">China Journey</p>
