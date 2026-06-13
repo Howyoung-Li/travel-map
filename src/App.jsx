@@ -1,22 +1,76 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as echarts from "echarts";
+import exifr from "exifr";
 import GrainientBackground from "./components/GrainientBackground";
 import travels from "./data/travels.json";
 
 const CHINA_GEOJSON_URL = `${import.meta.env.BASE_URL}china.geojson`;
 const UPLOAD_STORAGE_KEY = "travel-map-local-uploads";
-const PROVINCE_META = {
+
+const PROVINCE_OPTIONS = {
   湖北省: {
-    code: "420000",
-    color: "#f7b267",
+    color: "#f07f6e",
+    cities: [
+      { name: "武汉市", coords: [114.298572, 30.584355] },
+      { name: "黄石市", coords: [115.077048, 30.220074] },
+      { name: "十堰市", coords: [110.787916, 32.646907] },
+      { name: "宜昌市", coords: [111.290843, 30.702636] },
+      { name: "襄阳市", coords: [112.144146, 32.042426] },
+      { name: "鄂州市", coords: [114.890593, 30.396536] },
+      { name: "荆门市", coords: [112.204251, 31.03542] },
+      { name: "孝感市", coords: [113.926655, 30.926423] },
+      { name: "荆州市", coords: [112.23813, 30.326857] },
+      { name: "黄冈市", coords: [114.879365, 30.447711] },
+      { name: "咸宁市", coords: [114.328963, 29.832798] },
+      { name: "随州市", coords: [113.37377, 31.717497] },
+      { name: "恩施土家族苗族自治州", coords: [109.48699, 30.283114] },
+      { name: "仙桃市", coords: [113.453974, 30.364953] },
+      { name: "潜江市", coords: [112.896866, 30.421215] },
+      { name: "天门市", coords: [113.165862, 30.653061] },
+      { name: "神农架林区", coords: [110.671525, 31.744449] },
+    ],
   },
   安徽省: {
-    code: "340000",
-    color: "#79c7c5",
+    color: "#42b9b3",
+    cities: [
+      { name: "合肥市", coords: [117.283042, 31.86119] },
+      { name: "芜湖市", coords: [118.376451, 31.326319] },
+      { name: "蚌埠市", coords: [117.363228, 32.939667] },
+      { name: "淮南市", coords: [117.018329, 32.647574] },
+      { name: "马鞍山市", coords: [118.507906, 31.689362] },
+      { name: "淮北市", coords: [116.794664, 33.971707] },
+      { name: "铜陵市", coords: [117.816576, 30.929935] },
+      { name: "安庆市", coords: [117.043551, 30.50883] },
+      { name: "黄山市", coords: [118.317325, 29.709239] },
+      { name: "滁州市", coords: [118.316264, 32.303627] },
+      { name: "阜阳市", coords: [115.819729, 32.896969] },
+      { name: "宿州市", coords: [116.984084, 33.633891] },
+      { name: "六安市", coords: [116.507676, 31.752889] },
+      { name: "亳州市", coords: [115.782939, 33.869338] },
+      { name: "池州市", coords: [117.489157, 30.656037] },
+      { name: "宣城市", coords: [118.757995, 30.945667] },
+    ],
   },
   山东省: {
-    code: "370000",
-    color: "#8fb8ed",
+    color: "#6d9fea",
+    cities: [
+      { name: "济南市", coords: [117.000923, 36.675807] },
+      { name: "青岛市", coords: [120.355173, 36.082982] },
+      { name: "淄博市", coords: [118.047648, 36.814939] },
+      { name: "枣庄市", coords: [117.557964, 34.856424] },
+      { name: "东营市", coords: [118.66471, 37.434564] },
+      { name: "烟台市", coords: [121.391382, 37.539297] },
+      { name: "潍坊市", coords: [119.107078, 36.70925] },
+      { name: "济宁市", coords: [116.587245, 35.415393] },
+      { name: "泰安市", coords: [117.129063, 36.194968] },
+      { name: "威海市", coords: [122.116394, 37.509691] },
+      { name: "日照市", coords: [119.461208, 35.428588] },
+      { name: "临沂市", coords: [118.326443, 35.065282] },
+      { name: "德州市", coords: [116.307428, 37.453968] },
+      { name: "聊城市", coords: [115.980367, 36.456013] },
+      { name: "滨州市", coords: [118.016974, 37.383542] },
+      { name: "菏泽市", coords: [115.469381, 35.246531] },
+    ],
   },
 };
 
@@ -44,6 +98,16 @@ function formatDisplayDate(dateText) {
   }).format(date);
 }
 
+function toDateTimeText(date) {
+  if (!date) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hour = String(date.getHours()).padStart(2, "0");
+  const minute = String(date.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day} ${hour}:${minute}`;
+}
+
 function resolveAssetPath(assetPath) {
   if (!assetPath) return assetPath;
   if (/^(https?:|data:|blob:)/.test(assetPath)) return assetPath;
@@ -63,66 +127,70 @@ function collectStats(items) {
   };
 }
 
-function buildCitySeries(items, provinceName) {
-  const filteredItems = provinceName
-    ? items.filter((item) => item.province === provinceName)
-    : items;
-
-  return filteredItems.map((item) => ({
-    name: item.city,
-    value: [...item.coords, item.photos.length || 1],
-    tripId: item.id,
-  }));
+function hexToRgb(hex) {
+  const normalized = hex.replace("#", "");
+  return [
+    parseInt(normalized.slice(0, 2), 16),
+    parseInt(normalized.slice(2, 4), 16),
+    parseInt(normalized.slice(4, 6), 16),
+  ];
 }
 
-function buildProvinceRegions(geoJson, items) {
-  const visitedProvinces = new Set(items.map((item) => item.province));
-
-  return (geoJson.features || []).map((feature) => {
-    const provinceName = feature.properties?.name;
-    const provinceMeta = PROVINCE_META[provinceName];
-    const isVisited = visitedProvinces.has(provinceName);
-
-    return {
-      name: provinceName,
-      itemStyle: {
-        areaColor: isVisited ? provinceMeta?.color || "#f6c177" : "#dedbd3",
-        borderColor: isVisited ? "#fff8ec" : "#c8c4bd",
-        borderWidth: isVisited ? 1.4 : 0.8,
-        shadowBlur: isVisited ? 18 : 0,
-        shadowColor: isVisited ? `${provinceMeta?.color || "#f6c177"}99` : "transparent",
-      },
-      emphasis: {
-        itemStyle: {
-          areaColor: isVisited ? provinceMeta?.color || "#f6c177" : "#cfcac1",
-          borderColor: "#fffaf1",
-          shadowBlur: isVisited ? 26 : 4,
-          shadowColor: isVisited ? `${provinceMeta?.color || "#f6c177"}bb` : "rgba(0,0,0,0.08)",
-        },
-        label: {
-          color: isVisited ? "#4f3d2d" : "#837b70",
-        },
-      },
-    };
-  });
+function rgbToHex([red, green, blue]) {
+  return `#${[red, green, blue]
+    .map((value) => Math.round(value).toString(16).padStart(2, "0"))
+    .join("")}`;
 }
 
-function buildProvinceCityRegions(geoJson) {
-  return (geoJson.features || []).map((feature, index) => ({
+function mixColor(color, ratio) {
+  const from = hexToRgb(color);
+  const to = [255, 244, 219];
+  return rgbToHex(from.map((value, index) => value * (1 - ratio) + to[index] * ratio));
+}
+
+function getProvinceColor(province, index = 0) {
+  const baseColor = PROVINCE_OPTIONS[province]?.color || "#ee8f76";
+  return mixColor(baseColor, Math.min(index * 0.18, 0.42));
+}
+
+function buildProvinceRegions(geoJson) {
+  return (geoJson.features || []).map((feature) => ({
     name: feature.properties?.name,
     itemStyle: {
-      areaColor: index % 2 === 0 ? "#eef0e8" : "#e7ebe2",
-      borderColor: "#d0c8b8",
+      areaColor: "#dbd8d1",
+      borderColor: "#c4bfb6",
+      borderWidth: 0.8,
     },
     emphasis: {
       itemStyle: {
-        areaColor: "#f8dfbc",
+        areaColor: "#cec9c0",
       },
       label: {
-        color: "#594331",
+        color: "#665b51",
       },
     },
   }));
+}
+
+function buildCitySeries(items) {
+  const provinceCityIndex = new Map();
+
+  return items.map((item) => {
+    const index = provinceCityIndex.get(item.province) || 0;
+    provinceCityIndex.set(item.province, index + 1);
+    const color = getProvinceColor(item.province, index);
+
+    return {
+      name: item.city,
+      value: [...item.coords, item.photos.length || 1],
+      tripId: item.id,
+      itemStyle: {
+        color,
+        shadowBlur: 16,
+        shadowColor: `${color}99`,
+      },
+    };
+  });
 }
 
 function readStoredUploads() {
@@ -142,22 +210,26 @@ function storeUploads(nextUploads) {
   return undefined;
 }
 
+async function readPhotoTakenAt(file) {
+  const metadata = await exifr.parse(file, ["DateTimeOriginal", "CreateDate"]).catch(() => null);
+  const exifDate = metadata?.DateTimeOriginal || metadata?.CreateDate;
+  if (exifDate instanceof Date) return toDateTimeText(exifDate);
+  if (file.lastModified) return toDateTimeText(new Date(file.lastModified));
+  return "本地上传";
+}
+
 function fileToPhoto(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () =>
+    reader.onload = async () =>
       resolve({
         src: reader.result,
         caption: file.name.replace(/\.[^.]+$/, ""),
-        takenAt: "本地上传",
+        takenAt: await readPhotoTakenAt(file),
       });
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
-}
-
-function findLatestTripInProvince(provinceName) {
-  return sortedTravels.find((item) => item.province === provinceName);
 }
 
 function getTripPhotos(trip, uploadedPhotosByCity) {
@@ -165,19 +237,61 @@ function getTripPhotos(trip, uploadedPhotosByCity) {
   return [...trip.photos, ...(uploadedPhotosByCity[trip.city] || [])];
 }
 
-function buildMapSubtitle(mapMode, selectedProvinceName) {
-  if (mapMode === "province") return `${selectedProvinceName} 城市足迹`;
-  return "双击已点亮省份，进入省内足迹";
+function getCityOption(province, city) {
+  return PROVINCE_OPTIONS[province]?.cities.find((item) => item.name === city);
+}
+
+function createUploadTrip({ province, city, photos }) {
+  const cityOption = getCityOption(province, city);
+  const firstDate = photos[0]?.takenAt?.slice(0, 10) || "";
+
+  return {
+    id: `local-${province}-${city}`,
+    city,
+    province,
+    startDate: firstDate,
+    endDate: firstDate,
+    coords: cityOption?.coords || [0, 0],
+    note: "这是一段本地上传的新照片记录，正式发布时可以再补上旅行故事。",
+    tags: ["本地上传"],
+    photos,
+  };
+}
+
+function mergeUploadedTrips(baseTrips, uploadedPhotosByCity) {
+  const tripsByCity = new Map(baseTrips.map((trip) => [trip.city, { ...trip }]));
+
+  for (const [city, payload] of Object.entries(uploadedPhotosByCity)) {
+    const photos = Array.isArray(payload) ? payload : payload.photos || [];
+    const province = Array.isArray(payload) ? null : payload.province;
+    if (photos.length === 0) continue;
+
+    const existingTrip = tripsByCity.get(city);
+    if (existingTrip) {
+      tripsByCity.set(city, {
+        ...existingTrip,
+        photos: [...existingTrip.photos, ...photos],
+      });
+      continue;
+    }
+
+    if (!province) continue;
+    tripsByCity.set(city, createUploadTrip({ province, city, photos }));
+  }
+
+  return [...tripsByCity.values()].sort((left, right) =>
+    `${right.startDate || ""}${right.endDate || ""}`.localeCompare(
+      `${left.startDate || ""}${left.endDate || ""}`,
+    ),
+  );
+}
+
+function buildMapSubtitle() {
+  return "全国地图固定一层，拖动查看，滚轮可轻微放大，城市按省份同色系点亮";
 }
 
 function buildPhotoAlt(photo, city) {
   return `${city} - ${photo.caption}`;
-}
-
-function buildProvinceMapUrl(provinceName) {
-  const provinceMeta = PROVINCE_META[provinceName];
-  if (!provinceMeta) return null;
-  return `${import.meta.env.BASE_URL}maps/${provinceMeta.code}_full.json`;
 }
 
 function normalizeCityName(cityName) {
@@ -186,21 +300,33 @@ function normalizeCityName(cityName) {
 
 function App() {
   const chartRef = useRef(null);
-  const [selectedTripId, setSelectedTripId] = useState(sortedTravels[0]?.id ?? null);
+  const provinceNames = Object.keys(PROVINCE_OPTIONS);
+  const [uploadedPhotosByCity, setUploadedPhotosByCity] = useState(readStoredUploads);
+  const allTrips = useMemo(
+    () => mergeUploadedTrips(sortedTravels, uploadedPhotosByCity),
+    [uploadedPhotosByCity],
+  );
+  const [selectedTripId, setSelectedTripId] = useState(allTrips[0]?.id ?? null);
   const [mapStatus, setMapStatus] = useState("loading");
   const [shareState, setShareState] = useState("idle");
-  const [mapMode, setMapMode] = useState("country");
-  const [selectedProvinceName, setSelectedProvinceName] = useState(null);
-  const [uploadedPhotosByCity, setUploadedPhotosByCity] = useState(readStoredUploads);
-  const [selectedUploadCity, setSelectedUploadCity] = useState(sortedTravels[0]?.city ?? "");
-  const [lightboxPhoto, setLightboxPhoto] = useState(null);
-  const selectedTrip =
-    sortedTravels.find((item) => item.id === selectedTripId) ?? sortedTravels[0] ?? null;
-  const selectedTripPhotos = useMemo(
-    () => getTripPhotos(selectedTrip, uploadedPhotosByCity),
-    [selectedTrip, uploadedPhotosByCity],
+  const [selectedUploadProvince, setSelectedUploadProvince] = useState(provinceNames[0] ?? "");
+  const [selectedUploadCity, setSelectedUploadCity] = useState(
+    PROVINCE_OPTIONS[provinceNames[0]]?.cities[0]?.name ?? "",
   );
-  const stats = collectStats(sortedTravels);
+  const [lightboxPhoto, setLightboxPhoto] = useState(null);
+  const selectedTrip = allTrips.find((item) => item.id === selectedTripId) ?? allTrips[0] ?? null;
+  const selectedTripPhotos = selectedTrip?.photos || [];
+  const selectedProvinceCities = PROVINCE_OPTIONS[selectedUploadProvince]?.cities || [];
+  const stats = collectStats(allTrips);
+
+  useEffect(() => {
+    if (!selectedTripId && allTrips[0]) setSelectedTripId(allTrips[0].id);
+  }, [allTrips, selectedTripId]);
+
+  useEffect(() => {
+    const firstCity = PROVINCE_OPTIONS[selectedUploadProvince]?.cities[0]?.name;
+    if (firstCity) setSelectedUploadCity(firstCity);
+  }, [selectedUploadProvince]);
 
   async function handleShare() {
     const shareUrl = window.location.href;
@@ -224,23 +350,25 @@ function App() {
     }
   }
 
-  function returnToCountryMap() {
-    setMapMode("country");
-    setSelectedProvinceName(null);
-  }
-
   async function handlePhotoUpload(event) {
     const files = Array.from(event.target.files || []);
-    if (!selectedUploadCity || files.length === 0) return;
+    if (!selectedUploadProvince || !selectedUploadCity || files.length === 0) return;
 
     const uploadedPhotos = await Promise.all(files.map(fileToPhoto));
     setUploadedPhotosByCity((currentUploads) => {
+      const currentPayload = currentUploads[selectedUploadCity] || {
+        province: selectedUploadProvince,
+        photos: [],
+      };
+      const currentPhotos = Array.isArray(currentPayload)
+        ? currentPayload
+        : currentPayload.photos || [];
       const nextUploads = {
         ...currentUploads,
-        [selectedUploadCity]: [
-          ...(currentUploads[selectedUploadCity] || []),
-          ...uploadedPhotos,
-        ],
+        [selectedUploadCity]: {
+          province: selectedUploadProvince,
+          photos: [...currentPhotos, ...uploadedPhotos],
+        },
       };
       storeUploads(nextUploads);
       return nextUploads;
@@ -266,90 +394,68 @@ function App() {
     async function loadMap() {
       try {
         setMapStatus("loading");
-        const mapUrl =
-          mapMode === "country" ? CHINA_GEOJSON_URL : buildProvinceMapUrl(selectedProvinceName);
-        if (!mapUrl) throw new Error("Missing province map");
-
-        const response = await fetch(mapUrl);
+        const response = await fetch(CHINA_GEOJSON_URL);
         const geoJson = await response.json();
         if (disposed) return;
 
-        const mapName =
-          mapMode === "country" ? "china-travel" : `province-${selectedProvinceName}`;
-        const provinceTrips = selectedProvinceName
-          ? sortedTravels.filter((item) => item.province === selectedProvinceName)
-          : [];
-
-        echarts.registerMap(mapName, geoJson);
-
+        echarts.registerMap("china-travel", geoJson);
         chart.setOption({
           backgroundColor: "transparent",
           tooltip: {
             trigger: "item",
             formatter: (params) => {
-              const trip = sortedTravels.find((item) => item.id === params.data?.tripId);
-              if (trip) return `${trip.city}<br/>${formatDateRange(trip.startDate, trip.endDate)}`;
-
-              if (mapMode === "country") {
-                const count = sortedTravels.filter((item) => item.province === params.name).length;
-                return count > 0 ? `${params.name}<br/>${count} 座城市` : params.name;
-              }
-
-              return params.name;
+              const trip = allTrips.find((item) => item.id === params.data?.tripId);
+              if (!trip) return params.name;
+              return `${trip.city}<br/>${trip.province}<br/>${formatDateRange(
+                trip.startDate,
+                trip.endDate,
+              )}`;
             },
           },
           geo: {
-            map: mapName,
-            roam: false,
-            zoom: mapMode === "country" ? 1.05 : 1.1,
+            map: "china-travel",
+            roam: true,
+            zoom: 1.05,
+            scaleLimit: {
+              min: 1.05,
+              max: 1.85,
+            },
             layoutCenter: ["50%", "52%"],
-            layoutSize: mapMode === "country" ? "92%" : "88%",
-            regions:
-              mapMode === "country"
-                ? buildProvinceRegions(geoJson, sortedTravels)
-                : buildProvinceCityRegions(geoJson),
+            layoutSize: "92%",
+            regions: buildProvinceRegions(geoJson),
             itemStyle: {
-              areaColor: "#dedbd3",
-              borderColor: "#c8c4bd",
+              areaColor: "#dbd8d1",
+              borderColor: "#c4bfb6",
               borderWidth: 0.8,
             },
             emphasis: {
               itemStyle: {
-                areaColor: mapMode === "country" ? "#cfcac1" : "#f8dfbc",
+                areaColor: "#cec9c0",
               },
               label: {
-                color: "#5f4a33",
+                color: "#665b51",
               },
             },
           },
           series: [
-            ...(mapMode === "province"
-              ? [
-                  {
-                    type: "effectScatter",
-                    coordinateSystem: "geo",
-                    data: buildCitySeries(provinceTrips, selectedProvinceName),
-                    symbolSize: (value) => Math.max(12, Math.min(22, value[2] * 4)),
-                    showEffectOn: "render",
-                    rippleEffect: {
-                      scale: 3.6,
-                      brushType: "stroke",
-                    },
-                    itemStyle: {
-                      color: "#f07f6e",
-                      shadowBlur: 12,
-                      shadowColor: "rgba(240, 127, 110, 0.5)",
-                    },
-                    label: {
-                      show: true,
-                      formatter: (params) => normalizeCityName(params.name),
-                      position: "right",
-                      color: "#5d4032",
-                      fontWeight: 600,
-                    },
-                  },
-                ]
-              : []),
+            {
+              type: "effectScatter",
+              coordinateSystem: "geo",
+              data: buildCitySeries(allTrips),
+              symbolSize: (value) => Math.max(13, Math.min(24, value[2] * 4)),
+              showEffectOn: "render",
+              rippleEffect: {
+                scale: 3.4,
+                brushType: "stroke",
+              },
+              label: {
+                show: true,
+                formatter: (params) => normalizeCityName(params.name),
+                position: "right",
+                color: "#5d4032",
+                fontWeight: 700,
+              },
+            },
           ],
         });
 
@@ -362,24 +468,9 @@ function App() {
 
     loadMap();
 
-    chart.on("dblclick", (params) => {
-      if (mapMode !== "country") return;
-      if (!PROVINCE_META[params.name]) return;
-
-      const latestTrip = findLatestTripInProvince(params.name);
-      setSelectedProvinceName(params.name);
-      setMapMode("province");
-      if (latestTrip) {
-        setSelectedTripId(latestTrip.id);
-        setSelectedUploadCity(latestTrip.city);
-      }
-    });
-
     chart.on("click", (params) => {
-      if (mapMode === "province" && params.data?.tripId) {
-        const nextTrip = sortedTravels.find((item) => item.id === params.data.tripId);
+      if (params.data?.tripId) {
         setSelectedTripId(params.data.tripId);
-        if (nextTrip) setSelectedUploadCity(nextTrip.city);
       }
     });
 
@@ -391,7 +482,7 @@ function App() {
       window.removeEventListener("resize", handleResize);
       chart.dispose();
     };
-  }, [mapMode, selectedProvinceName]);
+  }, [allTrips]);
 
   return (
     <div className="app-shell">
@@ -426,18 +517,14 @@ function App() {
         <section className="timeline">
           <div className="section-head">
             <h2>足迹时间线</h2>
-            <span>{sortedTravels.length} 段回忆</span>
+            <span>{allTrips.length} 段回忆</span>
           </div>
           <div className="timeline-list">
-            {sortedTravels.map((item) => (
+            {allTrips.map((item) => (
               <button
                 key={item.id}
                 className={`timeline-item ${selectedTrip?.id === item.id ? "is-active" : ""}`}
-                onClick={() => {
-                  setSelectedTripId(item.id);
-                  setSelectedUploadCity(item.city);
-                  if (mapMode === "province") setSelectedProvinceName(item.province);
-                }}
+                onClick={() => setSelectedTripId(item.id)}
                 type="button"
               >
                 <span>{item.city}</span>
@@ -455,23 +542,14 @@ function App() {
           <div className="section-head">
             <div>
               <p className="eyebrow">China Journey</p>
-              <h2>
-                {mapMode === "province"
-                  ? `${selectedProvinceName} 城市地图`
-                  : "已去过的省份会被点亮"}
-              </h2>
-              <p className="map-subtitle">{buildMapSubtitle(mapMode, selectedProvinceName)}</p>
+              <h2>点亮去过的城市</h2>
+              <p className="map-subtitle">{buildMapSubtitle()}</p>
             </div>
             <div className="hero-actions">
               <div className="legend">
                 <span className="legend-dot" />
-                <span>{mapMode === "province" ? "城市足迹" : "已解锁省份"}</span>
+                <span>城市足迹</span>
               </div>
-              {mapMode === "province" && (
-                <button className="share-button" onClick={returnToCountryMap} type="button">
-                  返回中国地图
-                </button>
-              )}
               <button className="share-button" onClick={handleShare} type="button">
                 {shareState === "copied"
                   ? "链接已复制"
@@ -549,6 +627,22 @@ function App() {
                 <span>本地预览</span>
               </div>
 
+              <label className="upload-label" htmlFor="province-upload-select">
+                选择省份
+              </label>
+              <select
+                id="province-upload-select"
+                className="upload-select"
+                value={selectedUploadProvince}
+                onChange={(event) => setSelectedUploadProvince(event.target.value)}
+              >
+                {provinceNames.map((province) => (
+                  <option key={province} value={province}>
+                    {province}
+                  </option>
+                ))}
+              </select>
+
               <label className="upload-label" htmlFor="city-upload-select">
                 选择城市
               </label>
@@ -558,9 +652,9 @@ function App() {
                 value={selectedUploadCity}
                 onChange={(event) => setSelectedUploadCity(event.target.value)}
               >
-                {sortedTravels.map((item) => (
-                  <option key={item.id} value={item.city}>
-                    {item.city}
+                {selectedProvinceCities.map((city) => (
+                  <option key={city.name} value={city.name}>
+                    {city.name}
                   </option>
                 ))}
               </select>
@@ -571,7 +665,7 @@ function App() {
               </label>
 
               <p className="upload-note">
-                上传后会立刻出现在对应城市的胶卷里，并保存在当前浏览器。
+                上传后会读取照片拍摄时间，并在当前浏览器里更新对应城市。
               </p>
             </article>
           </section>
@@ -589,7 +683,9 @@ function App() {
             />
             <figcaption>
               <strong>{lightboxPhoto.caption}</strong>
-              <span>{lightboxPhoto.city} · {lightboxPhoto.takenAt || "待补充"}</span>
+              <span>
+                {lightboxPhoto.city} · {lightboxPhoto.takenAt || "待补充"}
+              </span>
             </figcaption>
           </figure>
         </div>
