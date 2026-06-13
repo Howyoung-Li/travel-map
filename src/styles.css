@@ -191,7 +191,9 @@ img {
   overflow: hidden;
 }
 
-.hero-map > * {
+.hero-map > .section-head,
+.hero-map > .map-canvas,
+.hero-map > .map-hint {
   position: relative;
   z-index: 1;
 }
