@@ -31,7 +31,7 @@ function TextPressure({
   scale = false,
   stroke = false,
   strokeColor = "#ffffff",
-  text = "粉丝",
+  text = "粉色",
   textColor = "#ffffff",
   textTransform = "none",
   weight = true,
