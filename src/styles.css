@@ -494,6 +494,58 @@ img {
   cursor: pointer;
 }
 
+.upload-auth-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.upload-auth-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.upload-passphrase-input {
+  min-width: 0;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid rgba(139, 104, 72, 0.22);
+  border-radius: 12px;
+  background: #fffaf4;
+  color: #553e2c;
+}
+
+.upload-passphrase-input:focus {
+  outline: 2px solid rgba(238, 143, 118, 0.24);
+  border-color: rgba(238, 143, 118, 0.5);
+}
+
+.upload-auth-button {
+  min-height: 42px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: #604734;
+  color: #fffaf5;
+  font-weight: 700;
+}
+
+.upload-auth-success {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(126, 171, 126, 0.14);
+  color: #54724c;
+  font-size: 13px;
+}
+
+.upload-auth-error {
+  margin: 0;
+  color: #a84435;
+  font-size: 13px;
+}
+
 .upload-file-input {
   width: 100%;
   margin-top: 12px;

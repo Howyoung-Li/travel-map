@@ -7,6 +7,8 @@ import travels from "./data/travels.json";
 
 const CHINA_GEOJSON_URL = `${import.meta.env.BASE_URL}china-cities.geojson`;
 const UPLOAD_STORAGE_KEY = "travel-map-local-uploads";
+const UPLOAD_AUTH_KEY = "travel-map-upload-unlocked";
+const UPLOAD_PASSWORD_HASH = "da493e7673dedcb3692cb54e8974c851e4f82787046c7e9af76b0b78165725ca";
 const PROVINCE_OPTIONS = cityOptions;
 
 const sortedTravels = [...travels].sort((left, right) =>
@@ -163,6 +165,31 @@ function storeUploads(nextUploads) {
   return undefined;
 }
 
+function readUploadAuth() {
+  try {
+    return window.sessionStorage.getItem(UPLOAD_AUTH_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function storeUploadAuth() {
+  try {
+    window.sessionStorage.setItem(UPLOAD_AUTH_KEY, "true");
+  } catch {
+    return undefined;
+  }
+  return undefined;
+}
+
+async function hashText(text) {
+  const bytes = new TextEncoder().encode(text);
+  const digest = await window.crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest))
+    .map((value) => value.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 async function readPhotoTakenAt(file) {
   const metadata = await exifr.parse(file, ["DateTimeOriginal", "CreateDate"]).catch(() => null);
   const exifDate = metadata?.DateTimeOriginal || metadata?.CreateDate;
@@ -284,6 +311,9 @@ function App() {
   const [selectedTripId, setSelectedTripId] = useState(allTrips[0]?.id ?? null);
   const [mapStatus, setMapStatus] = useState("loading");
   const [shareState, setShareState] = useState("idle");
+  const [isUploadUnlocked, setIsUploadUnlocked] = useState(readUploadAuth);
+  const [uploadPassphrase, setUploadPassphrase] = useState("");
+  const [uploadAuthStatus, setUploadAuthStatus] = useState("idle");
   const [selectedUploadProvince, setSelectedUploadProvince] = useState(provinceNames[0] ?? "");
   const [selectedUploadCity, setSelectedUploadCity] = useState(
     PROVINCE_OPTIONS[provinceNames[0]]?.cities[0]?.name ?? "",
@@ -330,6 +360,11 @@ function App() {
 
   async function handlePhotoUpload(event) {
     const files = Array.from(event.target.files || []);
+    if (!isUploadUnlocked) {
+      setUploadAuthStatus("error");
+      event.target.value = "";
+      return;
+    }
     if (!selectedUploadProvince || !selectedUploadCity || files.length === 0) return;
 
     const uploadedPhotos = await Promise.all(files.map(fileToPhoto));
@@ -352,6 +387,20 @@ function App() {
       return nextUploads;
     });
     event.target.value = "";
+  }
+
+  async function handleUnlockUpload(event) {
+    event.preventDefault();
+    const passwordHash = await hashText(uploadPassphrase.trim()).catch(() => "");
+    if (passwordHash !== UPLOAD_PASSWORD_HASH) {
+      setUploadAuthStatus("error");
+      return;
+    }
+
+    storeUploadAuth();
+    setIsUploadUnlocked(true);
+    setUploadPassphrase("");
+    setUploadAuthStatus("ready");
   }
 
   function handleDeleteUploadedPhoto(city, photo) {
@@ -690,17 +739,48 @@ function App() {
                 ))}
               </select>
 
-              <label className="upload-button" htmlFor="photo-upload-input">
-                上传照片
-              </label>
-              <input
-                accept="image/*"
-                className="upload-file-input"
-                id="photo-upload-input"
-                multiple
-                onChange={handlePhotoUpload}
-                type="file"
-              />
+              {isUploadUnlocked ? (
+                <>
+                  <div className="upload-auth-success">已解锁，本次会话可继续上传。</div>
+                  <label className="upload-button" htmlFor="photo-upload-input">
+                    上传照片
+                  </label>
+                  <input
+                    accept="image/*"
+                    className="upload-file-input"
+                    id="photo-upload-input"
+                    multiple
+                    onChange={handlePhotoUpload}
+                    type="file"
+                  />
+                </>
+              ) : (
+                <form className="upload-auth-form" onSubmit={handleUnlockUpload}>
+                  <label className="upload-label" htmlFor="upload-passphrase">
+                    上传口令
+                  </label>
+                  <div className="upload-auth-row">
+                    <input
+                      autoComplete="off"
+                      className="upload-passphrase-input"
+                      id="upload-passphrase"
+                      onChange={(event) => {
+                        setUploadPassphrase(event.target.value);
+                        if (uploadAuthStatus === "error") setUploadAuthStatus("idle");
+                      }}
+                      placeholder="输入口令后解锁上传"
+                      type="password"
+                      value={uploadPassphrase}
+                    />
+                    <button className="upload-auth-button" type="submit">
+                      解锁
+                    </button>
+                  </div>
+                  {uploadAuthStatus === "error" && (
+                    <p className="upload-auth-error">口令不对，暂时不能上传照片。</p>
+                  )}
+                </form>
+              )}
 
               <p className="upload-note">
                 上传后会读取照片拍摄时间，并在当前浏览器里更新对应城市。
