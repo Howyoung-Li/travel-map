@@ -570,7 +570,7 @@ function App() {
           <p className="sidebar-copy">
             把一起走过的城市、照片和时间，都留在这一张地图里。
           </p>
-          <div className="sweetheart-pressure" aria-label="sweetheart">
+          <div className="sweetheart-pressure" aria-label="粉丝">
             <TextPressure
               alpha
               flex={false}
@@ -578,7 +578,7 @@ function App() {
               maxFontSize={42}
               minFontSize={24}
               strokeColor="#fff0df"
-              text="sweetheart"
+              text="粉丝"
               textColor="#a84435"
               textTransform="none"
               weight

@@ -31,7 +31,7 @@ function TextPressure({
   scale = false,
   stroke = false,
   strokeColor = "#ffffff",
-  text = "sweetheart",
+  text = "粉丝",
   textColor = "#ffffff",
   textTransform = "none",
   weight = true,
@@ -99,7 +99,7 @@ function TextPressure({
         setLineHeight(yRatio);
       }
     });
-  }, [chars.length, minFontSize, scale]);
+  }, [chars.length, maxFontSize, minFontSize, scale]);
 
   useEffect(() => {
     const debouncedSetSize = debounce(setSize, 100);
