@@ -176,9 +176,11 @@ function fileToPhoto(file) {
     const reader = new FileReader();
     reader.onload = async () =>
       resolve({
+        id: `${Date.now()}-${crypto.randomUUID?.() || Math.random().toString(36).slice(2)}`,
         src: reader.result,
         caption: file.name.replace(/\.[^.]+$/, ""),
         takenAt: await readPhotoTakenAt(file),
+        isLocalUpload: true,
       });
     reader.onerror = reject;
     reader.readAsDataURL(file);
@@ -188,8 +190,25 @@ function fileToPhoto(file) {
 function getTripPhotos(trip, uploadedPhotosByCity) {
   if (!trip) return [];
   const payload = uploadedPhotosByCity[trip.city];
-  const uploadedPhotos = Array.isArray(payload) ? payload : payload?.photos || [];
+  const uploadedPhotos = normalizeUploadedPhotos(Array.isArray(payload) ? payload : payload?.photos || []);
   return [...trip.photos, ...uploadedPhotos];
+}
+
+function normalizeUploadedPhotos(photos) {
+  return photos.map((photo, index) => ({
+    ...photo,
+    id: photo.id || `legacy-${index}-${photo.src?.slice(0, 24) || photo.caption}`,
+    isLocalUpload: true,
+  }));
+}
+
+function isSamePhoto(left, right) {
+  if (left.id && right.id) return left.id === right.id;
+  return (
+    left.src === right.src &&
+    left.caption === right.caption &&
+    (left.takenAt || "") === (right.takenAt || "")
+  );
 }
 
 function getCityOption(province, city) {
@@ -217,7 +236,7 @@ function mergeUploadedTrips(baseTrips, uploadedPhotosByCity) {
   const tripsByCity = new Map(baseTrips.map((trip) => [trip.city, { ...trip }]));
 
   for (const [city, payload] of Object.entries(uploadedPhotosByCity)) {
-    const photos = Array.isArray(payload) ? payload : payload.photos || [];
+    const photos = normalizeUploadedPhotos(Array.isArray(payload) ? payload : payload.photos || []);
     const province = Array.isArray(payload) ? null : payload.province;
     if (photos.length === 0) continue;
 
@@ -255,6 +274,7 @@ function normalizeCityName(cityName) {
 
 function App() {
   const chartRef = useRef(null);
+  const mapViewportRef = useRef(null);
   const provinceNames = Object.keys(PROVINCE_OPTIONS);
   const [uploadedPhotosByCity, setUploadedPhotosByCity] = useState(readStoredUploads);
   const allTrips = useMemo(
@@ -275,7 +295,10 @@ function App() {
   const stats = collectStats(allTrips);
 
   useEffect(() => {
-    if (!selectedTripId && allTrips[0]) setSelectedTripId(allTrips[0].id);
+    if (!allTrips[0]) return;
+    if (!selectedTripId || !allTrips.some((item) => item.id === selectedTripId)) {
+      setSelectedTripId(allTrips[0].id);
+    }
   }, [allTrips, selectedTripId]);
 
   useEffect(() => {
@@ -331,6 +354,34 @@ function App() {
     event.target.value = "";
   }
 
+  function handleDeleteUploadedPhoto(city, photo) {
+    if (!photo.isLocalUpload) return;
+    const shouldDelete = window.confirm("删除这张本地上传的照片吗？");
+    if (!shouldDelete) return;
+
+    setUploadedPhotosByCity((currentUploads) => {
+      const currentPayload = currentUploads[city];
+      if (!currentPayload) return currentUploads;
+
+      const currentPhotos = Array.isArray(currentPayload)
+        ? currentPayload
+        : currentPayload.photos || [];
+      const nextPhotos = currentPhotos.filter((item) => !isSamePhoto(item, photo));
+      const nextUploads = { ...currentUploads };
+
+      if (nextPhotos.length === 0) {
+        delete nextUploads[city];
+      } else {
+        nextUploads[city] = Array.isArray(currentPayload)
+          ? nextPhotos
+          : { ...currentPayload, photos: nextPhotos };
+      }
+
+      storeUploads(nextUploads);
+      return nextUploads;
+    });
+  }
+
   useEffect(() => {
     const closeLightbox = (event) => {
       if (event.key === "Escape") setLightboxPhoto(null);
@@ -345,6 +396,12 @@ function App() {
 
     const chart = echarts.init(chartRef.current);
     let disposed = false;
+    const centerMapViewport = () => {
+      const viewport = mapViewportRef.current;
+      if (!viewport) return;
+      viewport.scrollLeft = (viewport.scrollWidth - viewport.clientWidth) / 2;
+      viewport.scrollTop = (viewport.scrollHeight - viewport.clientHeight) / 2;
+    };
 
     async function loadMap() {
       try {
@@ -375,8 +432,8 @@ function App() {
               min: 1.05,
               max: 4,
             },
-            layoutCenter: ["50%", "52%"],
-            layoutSize: "92%",
+            layoutCenter: ["50%", "50%"],
+            layoutSize: "98%",
             regions: buildCityRegions(geoJson, allTrips),
             itemStyle: {
               areaColor: "#dbd8d1",
@@ -415,6 +472,7 @@ function App() {
         });
 
         setMapStatus("ready");
+        requestAnimationFrame(centerMapViewport);
       } catch (error) {
         if (disposed) return;
         setMapStatus("error");
@@ -429,7 +487,10 @@ function App() {
       }
     });
 
-    const handleResize = () => chart.resize();
+    const handleResize = () => {
+      chart.resize();
+      centerMapViewport();
+    };
     window.addEventListener("resize", handleResize);
 
     return () => {
@@ -516,7 +577,9 @@ function App() {
               </button>
             </div>
           </div>
-          <div ref={chartRef} className="map-canvas" />
+          <div ref={mapViewportRef} className="map-scroll-frame" aria-label="可拖拽和滚动的中国城市地图">
+            <div ref={chartRef} className="map-canvas" />
+          </div>
           {mapStatus === "loading" && <p className="map-hint">正在加载地图轮廓...</p>}
           {mapStatus === "error" && (
             <p className="map-hint">
@@ -560,9 +623,22 @@ function App() {
                 {selectedTripPhotos.map((photo) => (
                   <figure
                     key={`${selectedTrip.id}-${photo.src}`}
-                    className="film-frame"
+                    className={`film-frame ${photo.isLocalUpload ? "is-local-upload" : ""}`}
                     onDoubleClick={() => setLightboxPhoto({ ...photo, city: selectedTrip.city })}
                   >
+                    {photo.isLocalUpload && (
+                      <button
+                        className="delete-photo-button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleDeleteUploadedPhoto(selectedTrip.city, photo);
+                        }}
+                        title="删除这张本地上传的照片"
+                        type="button"
+                      >
+                        删除
+                      </button>
+                    )}
                     <img
                       src={resolveAssetPath(photo.src)}
                       alt={buildPhotoAlt(photo, selectedTrip.city)}
