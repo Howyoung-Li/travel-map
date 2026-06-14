@@ -84,6 +84,24 @@ img {
   color: #725d46;
 }
 
+.sweetheart-pressure {
+  width: 100%;
+  height: 74px;
+  margin-top: 18px;
+  overflow: hidden;
+}
+
+.text-pressure-root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+}
+
+.text-pressure-title {
+  letter-spacing: 0;
+}
+
 .eyebrow {
   margin: 0 0 6px;
   color: #b46c4c;
@@ -462,6 +480,10 @@ img {
   font-size: 12px;
 }
 
+.travel-bounce-cards {
+  margin-top: 4px;
+}
+
 .upload-label {
   display: block;
   margin-bottom: 8px;
@@ -700,6 +722,10 @@ img {
   .memory-card {
     border-radius: 20px;
     padding: 18px;
+  }
+
+  .sweetheart-pressure {
+    height: 58px;
   }
 
   .map-canvas {

@@ -1,0 +1,90 @@
+.bounce-cards-container {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0;
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 34px 46px 46px;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+}
+
+.bounce-card {
+  position: relative;
+  flex: 0 0 clamp(142px, 28%, 190px);
+  width: clamp(142px, 28%, 190px);
+  margin: 0;
+  margin-left: -28px;
+  overflow: hidden;
+  border: 5px solid #fffaf2;
+  border-radius: 18px;
+  background: #2f2b28;
+  box-shadow: 0 18px 34px rgba(75, 54, 35, 0.22);
+  cursor: zoom-in;
+  transform-origin: center center;
+  scroll-snap-align: center;
+}
+
+.bounce-card:first-child {
+  margin-left: 0;
+}
+
+.bounce-card img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: #fffaf2;
+}
+
+.bounce-card figcaption {
+  display: grid;
+  gap: 4px;
+  padding: 10px 10px 12px;
+}
+
+.bounce-card strong {
+  overflow: hidden;
+  color: #fff7ea;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bounce-card span {
+  color: #d8c8ac;
+  font-size: 12px;
+}
+
+.bounce-card-delete {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 250, 242, 0.72);
+  border-radius: 999px;
+  background: rgba(47, 43, 40, 0.78);
+  color: #fff7ea;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.24);
+}
+
+.bounce-card-delete:hover {
+  background: #a84435;
+}
+
+@media (max-width: 720px) {
+  .bounce-cards-container {
+    min-height: 280px !important;
+    padding-inline: 22px;
+  }
+
+  .bounce-card {
+    flex-basis: 156px;
+    width: 156px;
+  }
+}

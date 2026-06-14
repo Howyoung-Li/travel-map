@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as echarts from "echarts";
 import exifr from "exifr";
+import BounceCards from "./components/BounceCards";
 import GrainientBackground from "./components/GrainientBackground";
+import TextPressure from "./components/TextPressure";
 import cityOptions from "./data/cityOptions.json";
 import travels from "./data/travels.json";
 
@@ -321,6 +323,16 @@ function App() {
   const [lightboxPhoto, setLightboxPhoto] = useState(null);
   const selectedTrip = allTrips.find((item) => item.id === selectedTripId) ?? allTrips[0] ?? null;
   const selectedTripPhotos = selectedTrip?.photos || [];
+  const selectedTripPhotoCards = useMemo(
+    () =>
+      selectedTripPhotos.map((photo) => ({
+        ...photo,
+        alt: buildPhotoAlt(photo, selectedTrip?.city || ""),
+        city: selectedTrip?.city,
+        src: resolveAssetPath(photo.src),
+      })),
+    [selectedTrip?.city, selectedTripPhotos],
+  );
   const selectedProvinceCities = PROVINCE_OPTIONS[selectedUploadProvince]?.cities || [];
   const stats = collectStats(allTrips);
 
@@ -558,6 +570,21 @@ function App() {
           <p className="sidebar-copy">
             把一起走过的城市、照片和时间，都留在这一张地图里。
           </p>
+          <div className="sweetheart-pressure" aria-label="sweetheart">
+            <TextPressure
+              alpha
+              flex={false}
+              italic
+              maxFontSize={42}
+              minFontSize={24}
+              strokeColor="#fff0df"
+              text="sweetheart"
+              textColor="#a84435"
+              textTransform="none"
+              weight
+              width
+            />
+          </div>
         </div>
 
         <div className="stat-grid">
@@ -668,37 +695,13 @@ function App() {
                 ))}
               </div>
 
-              <div className="film-strip" aria-label={`${selectedTrip.city} 照片胶卷`}>
-                {selectedTripPhotos.map((photo) => (
-                  <figure
-                    key={`${selectedTrip.id}-${photo.src}`}
-                    className={`film-frame ${photo.isLocalUpload ? "is-local-upload" : ""}`}
-                    onDoubleClick={() => setLightboxPhoto({ ...photo, city: selectedTrip.city })}
-                  >
-                    {photo.isLocalUpload && (
-                      <button
-                        className="delete-photo-button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          handleDeleteUploadedPhoto(selectedTrip.city, photo);
-                        }}
-                        title="删除这张本地上传的照片"
-                        type="button"
-                      >
-                        删除
-                      </button>
-                    )}
-                    <img
-                      src={resolveAssetPath(photo.src)}
-                      alt={buildPhotoAlt(photo, selectedTrip.city)}
-                    />
-                    <figcaption>
-                      <strong>{photo.caption}</strong>
-                      <span>{photo.takenAt || "待补充"}</span>
-                    </figcaption>
-                  </figure>
-                ))}
-              </div>
+              <BounceCards
+                cards={selectedTripPhotoCards}
+                className="travel-bounce-cards"
+                containerHeight={320}
+                onDelete={(photo) => handleDeleteUploadedPhoto(selectedTrip.city, photo)}
+                onOpen={(photo) => setLightboxPhoto({ ...photo, city: selectedTrip.city })}
+              />
             </article>
 
             <article className="upload-card">
