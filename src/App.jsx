@@ -2,77 +2,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as echarts from "echarts";
 import exifr from "exifr";
 import GrainientBackground from "./components/GrainientBackground";
+import cityOptions from "./data/cityOptions.json";
 import travels from "./data/travels.json";
 
-const CHINA_GEOJSON_URL = `${import.meta.env.BASE_URL}china.geojson`;
+const CHINA_GEOJSON_URL = `${import.meta.env.BASE_URL}china-cities.geojson`;
 const UPLOAD_STORAGE_KEY = "travel-map-local-uploads";
-
-const PROVINCE_OPTIONS = {
-  湖北省: {
-    color: "#f07f6e",
-    cities: [
-      { name: "武汉市", coords: [114.298572, 30.584355] },
-      { name: "黄石市", coords: [115.077048, 30.220074] },
-      { name: "十堰市", coords: [110.787916, 32.646907] },
-      { name: "宜昌市", coords: [111.290843, 30.702636] },
-      { name: "襄阳市", coords: [112.144146, 32.042426] },
-      { name: "鄂州市", coords: [114.890593, 30.396536] },
-      { name: "荆门市", coords: [112.204251, 31.03542] },
-      { name: "孝感市", coords: [113.926655, 30.926423] },
-      { name: "荆州市", coords: [112.23813, 30.326857] },
-      { name: "黄冈市", coords: [114.879365, 30.447711] },
-      { name: "咸宁市", coords: [114.328963, 29.832798] },
-      { name: "随州市", coords: [113.37377, 31.717497] },
-      { name: "恩施土家族苗族自治州", coords: [109.48699, 30.283114] },
-      { name: "仙桃市", coords: [113.453974, 30.364953] },
-      { name: "潜江市", coords: [112.896866, 30.421215] },
-      { name: "天门市", coords: [113.165862, 30.653061] },
-      { name: "神农架林区", coords: [110.671525, 31.744449] },
-    ],
-  },
-  安徽省: {
-    color: "#42b9b3",
-    cities: [
-      { name: "合肥市", coords: [117.283042, 31.86119] },
-      { name: "芜湖市", coords: [118.376451, 31.326319] },
-      { name: "蚌埠市", coords: [117.363228, 32.939667] },
-      { name: "淮南市", coords: [117.018329, 32.647574] },
-      { name: "马鞍山市", coords: [118.507906, 31.689362] },
-      { name: "淮北市", coords: [116.794664, 33.971707] },
-      { name: "铜陵市", coords: [117.816576, 30.929935] },
-      { name: "安庆市", coords: [117.043551, 30.50883] },
-      { name: "黄山市", coords: [118.317325, 29.709239] },
-      { name: "滁州市", coords: [118.316264, 32.303627] },
-      { name: "阜阳市", coords: [115.819729, 32.896969] },
-      { name: "宿州市", coords: [116.984084, 33.633891] },
-      { name: "六安市", coords: [116.507676, 31.752889] },
-      { name: "亳州市", coords: [115.782939, 33.869338] },
-      { name: "池州市", coords: [117.489157, 30.656037] },
-      { name: "宣城市", coords: [118.757995, 30.945667] },
-    ],
-  },
-  山东省: {
-    color: "#6d9fea",
-    cities: [
-      { name: "济南市", coords: [117.000923, 36.675807] },
-      { name: "青岛市", coords: [120.355173, 36.082982] },
-      { name: "淄博市", coords: [118.047648, 36.814939] },
-      { name: "枣庄市", coords: [117.557964, 34.856424] },
-      { name: "东营市", coords: [118.66471, 37.434564] },
-      { name: "烟台市", coords: [121.391382, 37.539297] },
-      { name: "潍坊市", coords: [119.107078, 36.70925] },
-      { name: "济宁市", coords: [116.587245, 35.415393] },
-      { name: "泰安市", coords: [117.129063, 36.194968] },
-      { name: "威海市", coords: [122.116394, 37.509691] },
-      { name: "日照市", coords: [119.461208, 35.428588] },
-      { name: "临沂市", coords: [118.326443, 35.065282] },
-      { name: "德州市", coords: [116.307428, 37.453968] },
-      { name: "聊城市", coords: [115.980367, 36.456013] },
-      { name: "滨州市", coords: [118.016974, 37.383542] },
-      { name: "菏泽市", coords: [115.469381, 35.246531] },
-    ],
-  },
-};
+const PROVINCE_OPTIONS = cityOptions;
 
 const sortedTravels = [...travels].sort((left, right) =>
   `${right.startDate || ""}${right.endDate || ""}`.localeCompare(
@@ -153,20 +88,38 @@ function getProvinceColor(province, index = 0) {
   return mixColor(baseColor, Math.min(index * 0.18, 0.42));
 }
 
-function buildProvinceRegions(geoJson) {
+function buildCityRegions(geoJson, items) {
+  const visitedCityIndex = new Map();
+  const tripsByCity = new Map(items.map((item) => [item.city, item]));
+
   return (geoJson.features || []).map((feature) => ({
     name: feature.properties?.name,
-    itemStyle: {
-      areaColor: "#dbd8d1",
-      borderColor: "#c4bfb6",
-      borderWidth: 0.8,
-    },
+    itemStyle: (() => {
+      const cityName = feature.properties?.name;
+      const provinceName = feature.properties?.province;
+      const trip = tripsByCity.get(cityName);
+      if (!trip) {
+        return {
+          areaColor: "#dbd8d1",
+          borderColor: "#c4bfb6",
+          borderWidth: 0.55,
+        };
+      }
+
+      const index = visitedCityIndex.get(provinceName) || 0;
+      visitedCityIndex.set(provinceName, index + 1);
+      const color = getProvinceColor(provinceName, index);
+      return {
+        areaColor: color,
+        borderColor: "#fff8ec",
+        borderWidth: 1,
+        shadowBlur: 16,
+        shadowColor: `${color}88`,
+      };
+    })(),
     emphasis: {
       itemStyle: {
-        areaColor: "#cec9c0",
-      },
-      label: {
-        color: "#665b51",
+        areaColor: tripsByCity.has(feature.properties?.name) ? "#fff0c9" : "#cec9c0",
       },
     },
   }));
@@ -234,7 +187,9 @@ function fileToPhoto(file) {
 
 function getTripPhotos(trip, uploadedPhotosByCity) {
   if (!trip) return [];
-  return [...trip.photos, ...(uploadedPhotosByCity[trip.city] || [])];
+  const payload = uploadedPhotosByCity[trip.city];
+  const uploadedPhotos = Array.isArray(payload) ? payload : payload?.photos || [];
+  return [...trip.photos, ...uploadedPhotos];
 }
 
 function getCityOption(province, city) {
@@ -287,7 +242,7 @@ function mergeUploadedTrips(baseTrips, uploadedPhotosByCity) {
 }
 
 function buildMapSubtitle() {
-  return "全国地图固定一层，拖动查看，滚轮可轻微放大，城市按省份同色系点亮";
+  return "全国城市级地图，去过的城市会按省份同色系渐变点亮";
 }
 
 function buildPhotoAlt(photo, city) {
@@ -418,11 +373,11 @@ function App() {
             zoom: 1.05,
             scaleLimit: {
               min: 1.05,
-              max: 1.85,
+              max: 4,
             },
             layoutCenter: ["50%", "52%"],
             layoutSize: "92%",
-            regions: buildProvinceRegions(geoJson),
+            regions: buildCityRegions(geoJson, allTrips),
             itemStyle: {
               areaColor: "#dbd8d1",
               borderColor: "#c4bfb6",
@@ -659,10 +614,17 @@ function App() {
                 ))}
               </select>
 
-              <label className="upload-button">
+              <label className="upload-button" htmlFor="photo-upload-input">
                 上传照片
-                <input accept="image/*" multiple onChange={handlePhotoUpload} type="file" />
               </label>
+              <input
+                accept="image/*"
+                className="upload-file-input"
+                id="photo-upload-input"
+                multiple
+                onChange={handlePhotoUpload}
+                type="file"
+              />
 
               <p className="upload-note">
                 上传后会读取照片拍摄时间，并在当前浏览器里更新对应城市。

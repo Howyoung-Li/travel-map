@@ -42,8 +42,9 @@ img {
 
 .app-shell {
   display: grid;
-  grid-template-columns: 320px 1fr;
+  grid-template-columns: 300px minmax(0, 980px);
   gap: 24px;
+  justify-content: center;
   min-height: 100vh;
   padding: 24px;
 }
@@ -185,6 +186,8 @@ img {
 .main-panel {
   display: grid;
   gap: 24px;
+  width: 100%;
+  max-width: 980px;
 }
 
 .hero-map {
@@ -450,8 +453,24 @@ img {
   cursor: pointer;
 }
 
-.upload-button input {
-  display: none;
+.upload-file-input {
+  width: 100%;
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px dashed rgba(139, 104, 72, 0.28);
+  border-radius: 14px;
+  background: #fffaf4;
+  color: #604734;
+}
+
+.upload-file-input::file-selector-button {
+  margin-right: 12px;
+  border: 0;
+  border-radius: 999px;
+  background: #fff0df;
+  color: #8a563c;
+  padding: 8px 12px;
+  font: inherit;
 }
 
 .upload-note {
